@@ -18,6 +18,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.room.Room
 import com.example.expense_tracker.data.ExpenseDatabase
 import com.example.expense_tracker.data.ExpenseItem
+import com.example.expense_tracker.ui.components.CategoryDropdown
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
 import java.time.Instant
@@ -25,7 +26,6 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
-/* ── ViewModel shared with this screen ───────────────────────── */
 @OptIn(ExperimentalMaterial3Api::class)
 class ExpenseViewModel(private val db: ExpenseDatabase) : ViewModel() {
     private val dao = db.expenseDao()
@@ -44,7 +44,6 @@ class ExpenseViewModelFactory(private val db: ExpenseDatabase) : ViewModelProvid
     override fun <T : ViewModel> create(modelClass: Class<T>): T = ExpenseViewModel(db) as T
 }
 
-/* ── Provide a single Room instance ─────────────────────────── */
 @Composable
 fun rememberDatabase(): ExpenseDatabase {
     val ctx = LocalContext.current
@@ -55,7 +54,6 @@ fun rememberDatabase(): ExpenseDatabase {
     }
 }
 
-/* ── Page 1 UI ──────────────────────────────────────────────── */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ExpensesScreen() {
@@ -63,19 +61,22 @@ fun ExpensesScreen() {
     val vm: ExpenseViewModel = viewModel(factory = ExpenseViewModelFactory(db))
     val expenses by vm.expenses.collectAsState(initial = emptyList())
 
-    /* Form state */
+    // Form state
     var desc by remember { mutableStateOf("") }
     var amt  by remember { mutableStateOf("") }
     var cat  by remember { mutableStateOf("") }
 
-    /* Date picker state */
+    // Category options
+    val categories = listOf("Food", "Transport", "Entertainment", "Utilities", "Other")
+
+    // Date picker state
     val todayMillis = remember {
         LocalDate.now().atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
     }
-    val pickerState   = rememberDatePickerState(initialSelectedDateMillis = todayMillis)
-    var showPicker    by remember { mutableStateOf(false) }
+    val datePickerState = rememberDatePickerState(initialSelectedDateMillis = todayMillis)
+    var showDatePicker by remember { mutableStateOf(false) }
     val dateFormatter = remember { DateTimeFormatter.ofPattern("yyyy-MM-dd") }
-    val dateString    = pickerState.selectedDateMillis?.let { millis ->
+    val dateString = datePickerState.selectedDateMillis?.let { millis ->
         Instant.ofEpochMilli(millis)
             .atZone(ZoneId.systemDefault())
             .toLocalDate()
@@ -85,44 +86,70 @@ fun ExpensesScreen() {
     val ctx = LocalContext.current
 
     Column(Modifier.fillMaxSize().padding(16.dp)) {
-
-        /* ------ Add expense form ------ */
         Text("Add Expense", style = MaterialTheme.typography.titleMedium)
         Spacer(Modifier.height(8.dp))
 
-        TextField(desc, { desc = it }, label = { Text("Description") })
+        TextField(
+            value = desc,
+            onValueChange = { desc = it },
+            label = { Text("Description") },
+            modifier = Modifier.fillMaxWidth()
+        )
         Spacer(Modifier.height(4.dp))
 
-        TextField(amt,  { amt  = it }, label = { Text("Amount") })
+        TextField(
+            value = amt,
+            onValueChange = { amt = it },
+            label = { Text("Amount") },
+            modifier = Modifier.fillMaxWidth()
+        )
         Spacer(Modifier.height(4.dp))
 
-        TextField(cat,  { cat  = it }, label = { Text("Category") })
+        CategoryDropdown(
+            options = categories,
+            selectedOption = cat,
+            onOptionSelected = { cat = it },
+            modifier = Modifier.fillMaxWidth()
+        )
         Spacer(Modifier.height(4.dp))
 
-        OutlinedButton(onClick = { showPicker = true }) {
+        OutlinedButton(
+            onClick = { showDatePicker = true },
+            modifier = Modifier.fillMaxWidth()
+        ) {
             Text(if (dateString.isNotBlank()) dateString else "Select date")
         }
-        if (showPicker) {
+        if (showDatePicker) {
             DatePickerDialog(
-                onDismissRequest = { showPicker = false },
-                confirmButton    = { TextButton({ showPicker = false }) { Text("OK") } },
-                dismissButton    = { TextButton({ showPicker = false }) { Text("Cancel") } }
-            ) { DatePicker(state = pickerState) }
+                onDismissRequest = { showDatePicker = false },
+                confirmButton = {
+                    TextButton(onClick = { showDatePicker = false }) { Text("OK") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showDatePicker = false }) { Text("Cancel") }
+                }
+            ) {
+                DatePicker(state = datePickerState)
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+
+        Button(
+            onClick = {
+                val amount = amt.toDoubleOrNull()
+                if (desc.isNotBlank() && amount != null && cat.isNotBlank() && dateString.isNotBlank()) {
+                    vm.addExpense(desc, amount, cat, dateString)
+                    desc = ""; amt = ""; cat = ""
+                    datePickerState.selectedDateMillis = todayMillis
+                } else {
+                    Toast.makeText(ctx, "Please fill all fields correctly", Toast.LENGTH_SHORT).show()
+                }
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Add Expense")
         }
 
-        Spacer(Modifier.height(8.dp))
-        Button(onClick = {
-            val amount = amt.toDoubleOrNull()
-            if (desc.isNotBlank() && amount != null && cat.isNotBlank() && dateString.isNotBlank()) {
-                vm.addExpense(desc, amount, cat, dateString)
-                desc = ""; amt = ""; cat = ""
-                pickerState.selectedDateMillis = todayMillis
-            } else {
-                Toast.makeText(ctx, "Please fill all fields correctly", Toast.LENGTH_SHORT).show()
-            }
-        }) { Text("Add Expense") }
-
-        /* ------ Expense list ------ */
         Spacer(Modifier.height(16.dp))
         Text("Expenses", style = MaterialTheme.typography.titleMedium)
 
@@ -139,7 +166,7 @@ fun ExpensesScreen() {
             Spacer(Modifier.weight(1f))
         }
 
-        LazyColumn {
+        LazyColumn(modifier = Modifier.fillMaxSize()) {
             items(expenses) { exp ->
                 ExpenseRow(
                     exp,
@@ -151,7 +178,6 @@ fun ExpensesScreen() {
     }
 }
 
-/* ── List row ───────────────────────────────────────────────── */
 @Composable
 fun ExpenseRow(
     exp: ExpenseItem,
@@ -159,10 +185,10 @@ fun ExpenseRow(
     onDelete: () -> Unit
 ) {
     var editing by remember { mutableStateOf(false) }
-    var desc  by remember { mutableStateOf(exp.name) }
-    var amt   by remember { mutableStateOf(exp.price.toString()) }
-    var cat   by remember { mutableStateOf(exp.category) }
-    var date  by remember { mutableStateOf(exp.date) }
+    var desc by remember { mutableStateOf(exp.name) }
+    var amt  by remember { mutableStateOf(exp.price.toString()) }
+    var cat  by remember { mutableStateOf(exp.category) }
+    var date by remember { mutableStateOf(exp.date) }
 
     if (editing) {
         Row(Modifier.fillMaxWidth().padding(4.dp)) {
@@ -189,10 +215,10 @@ fun ExpenseRow(
                 .padding(8.dp)
                 .background(Color.LightGray)
         ) {
-            Text(desc,             Modifier.weight(2f).padding(4.dp))
+            Text(desc, Modifier.weight(2f).padding(4.dp))
             Text(exp.price.toString(), Modifier.weight(1f).padding(4.dp))
-            Text(cat,              Modifier.weight(1f).padding(4.dp))
-            Text(date,             Modifier.weight(1f).padding(4.dp))
+            Text(cat, Modifier.weight(1f).padding(4.dp))
+            Text(date, Modifier.weight(1f).padding(4.dp))
             Row(Modifier.weight(1f)) {
                 TextButton({ editing = true }) { Text("Edit") }
                 TextButton(onDelete)          { Text("Delete") }
