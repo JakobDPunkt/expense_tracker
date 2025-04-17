@@ -1,5 +1,3 @@
-@file:Suppress("UNCHECKED_CAST")
-
 package com.example.expense_tracker.ui
 
 import android.widget.Toast
@@ -12,7 +10,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -28,9 +25,9 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
-/** ViewModel */
-@OptIn(ExperimentalMaterial3Api::class)      // required for the M3 date‑picker APIs
-class ExpenseViewModel(db: ExpenseDatabase) : ViewModel() {
+/* ── ViewModel shared with this screen ───────────────────────── */
+@OptIn(ExperimentalMaterial3Api::class)
+class ExpenseViewModel(private val db: ExpenseDatabase) : ViewModel() {
     private val dao = db.expenseDao()
     val expenses: Flow<List<ExpenseItem>> = dao.getAll()
 
@@ -47,7 +44,7 @@ class ExpenseViewModelFactory(private val db: ExpenseDatabase) : ViewModelProvid
     override fun <T : ViewModel> create(modelClass: Class<T>): T = ExpenseViewModel(db) as T
 }
 
-/** Remember a single Room instance */
+/* ── Provide a single Room instance ─────────────────────────── */
 @Composable
 fun rememberDatabase(): ExpenseDatabase {
     val ctx = LocalContext.current
@@ -58,29 +55,27 @@ fun rememberDatabase(): ExpenseDatabase {
     }
 }
 
+/* ── Page 1 UI ──────────────────────────────────────────────── */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ExpenseApp() {
+fun ExpensesScreen() {
     val db = rememberDatabase()
     val vm: ExpenseViewModel = viewModel(factory = ExpenseViewModelFactory(db))
     val expenses by vm.expenses.collectAsState(initial = emptyList())
 
-    /* ── Form state ─────────────────────────────────── */
+    /* Form state */
     var desc by remember { mutableStateOf("") }
     var amt  by remember { mutableStateOf("") }
     var cat  by remember { mutableStateOf("") }
 
-    /* ── Date‑picker state ───────────────────────────── */
+    /* Date picker state */
     val todayMillis = remember {
-        LocalDate.now()
-            .atStartOfDay(ZoneId.systemDefault())
-            .toInstant()
-            .toEpochMilli()
+        LocalDate.now().atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
     }
-    val datePickerState = rememberDatePickerState(initialSelectedDateMillis = todayMillis)
-    var showDatePicker by remember { mutableStateOf(false) }
+    val pickerState   = rememberDatePickerState(initialSelectedDateMillis = todayMillis)
+    var showPicker    by remember { mutableStateOf(false) }
     val dateFormatter = remember { DateTimeFormatter.ofPattern("yyyy-MM-dd") }
-    val dateString = datePickerState.selectedDateMillis?.let { millis ->
+    val dateString    = pickerState.selectedDateMillis?.let { millis ->
         Instant.ofEpochMilli(millis)
             .atZone(ZoneId.systemDefault())
             .toLocalDate()
@@ -89,9 +84,9 @@ fun ExpenseApp() {
 
     val ctx = LocalContext.current
 
-    Column(Modifier.padding(16.dp)) {
+    Column(Modifier.fillMaxSize().padding(16.dp)) {
 
-        /* ── Add expense ─────────────────────────────── */
+        /* ------ Add expense form ------ */
         Text("Add Expense", style = MaterialTheme.typography.titleMedium)
         Spacer(Modifier.height(8.dp))
 
@@ -104,23 +99,15 @@ fun ExpenseApp() {
         TextField(cat,  { cat  = it }, label = { Text("Category") })
         Spacer(Modifier.height(4.dp))
 
-        /* Date picker button */
-        OutlinedButton(onClick = { showDatePicker = true }) {
+        OutlinedButton(onClick = { showPicker = true }) {
             Text(if (dateString.isNotBlank()) dateString else "Select date")
         }
-
-        if (showDatePicker) {
+        if (showPicker) {
             DatePickerDialog(
-                onDismissRequest = { showDatePicker = false },
-                confirmButton = {
-                    TextButton(onClick = { showDatePicker = false }) { Text("OK") }
-                },
-                dismissButton = {
-                    TextButton(onClick = { showDatePicker = false }) { Text("Cancel") }
-                }
-            ) {
-                DatePicker(state = datePickerState)
-            }
+                onDismissRequest = { showPicker = false },
+                confirmButton    = { TextButton({ showPicker = false }) { Text("OK") } },
+                dismissButton    = { TextButton({ showPicker = false }) { Text("Cancel") } }
+            ) { DatePicker(state = pickerState) }
         }
 
         Spacer(Modifier.height(8.dp))
@@ -128,15 +115,14 @@ fun ExpenseApp() {
             val amount = amt.toDoubleOrNull()
             if (desc.isNotBlank() && amount != null && cat.isNotBlank() && dateString.isNotBlank()) {
                 vm.addExpense(desc, amount, cat, dateString)
-                /* Clear form */
                 desc = ""; amt = ""; cat = ""
-                datePickerState.selectedDateMillis = todayMillis
+                pickerState.selectedDateMillis = todayMillis
             } else {
                 Toast.makeText(ctx, "Please fill all fields correctly", Toast.LENGTH_SHORT).show()
             }
         }) { Text("Add Expense") }
 
-        /* ── Expense list ─────────────────────────────── */
+        /* ------ Expense list ------ */
         Spacer(Modifier.height(16.dp))
         Text("Expenses", style = MaterialTheme.typography.titleMedium)
 
@@ -165,7 +151,7 @@ fun ExpenseApp() {
     }
 }
 
-/** Single row in the list */
+/* ── List row ───────────────────────────────────────────────── */
 @Composable
 fun ExpenseRow(
     exp: ExpenseItem,
@@ -203,20 +189,14 @@ fun ExpenseRow(
                 .padding(8.dp)
                 .background(Color.LightGray)
         ) {
-            Text(desc, Modifier.weight(2f).padding(4.dp))
+            Text(desc,             Modifier.weight(2f).padding(4.dp))
             Text(exp.amount.toString(), Modifier.weight(1f).padding(4.dp))
-            Text(cat, Modifier.weight(1f).padding(4.dp))
-            Text(date, Modifier.weight(1f).padding(4.dp))
+            Text(cat,              Modifier.weight(1f).padding(4.dp))
+            Text(date,             Modifier.weight(1f).padding(4.dp))
             Row(Modifier.weight(1f)) {
                 TextButton({ editing = true }) { Text("Edit") }
                 TextButton(onDelete)          { Text("Delete") }
             }
         }
     }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun PreviewExpenseApp() {
-    ExpenseApp()
 }
