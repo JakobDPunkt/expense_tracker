@@ -1,3 +1,5 @@
+@file:Suppress("UNCHECKED_CAST")
+
 package com.example.expense_tracker.ui
 
 import android.widget.Toast
@@ -28,7 +30,7 @@ import java.time.format.DateTimeFormatter
 
 /** ViewModel */
 @OptIn(ExperimentalMaterial3Api::class)      // required for the M3 date‑picker APIs
-class ExpenseViewModel(private val db: ExpenseDatabase) : ViewModel() {
+class ExpenseViewModel(db: ExpenseDatabase) : ViewModel() {
     private val dao = db.expenseDao()
     val expenses: Flow<List<ExpenseItem>> = dao.getAll()
 
