@@ -21,7 +21,7 @@ interface ExpenseDao {
     @Delete suspend fun delete(item: ExpenseItem)
 }
 
-@Database(entities = [ExpenseItem::class], version = 3)
+@Database(entities = [ExpenseItem::class], version = 4)
 abstract class ExpenseDatabase : RoomDatabase() {
     abstract fun expenseDao(): ExpenseDao
 }

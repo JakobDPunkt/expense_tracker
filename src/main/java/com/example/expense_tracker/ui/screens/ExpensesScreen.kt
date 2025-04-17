@@ -33,7 +33,7 @@ class ExpenseViewModel(private val db: ExpenseDatabase) : ViewModel() {
 
     fun addExpense(desc: String, amt: Double, cat: String, date: String) =
         viewModelScope.launch {
-            dao.insert(ExpenseItem(description = desc, amount = amt, category = cat, date = date))
+            dao.insert(ExpenseItem(name = desc, price = amt, category = cat, date = date))
         }
 
     fun updateExpense(item: ExpenseItem) = viewModelScope.launch { dao.update(item) }
@@ -159,8 +159,8 @@ fun ExpenseRow(
     onDelete: () -> Unit
 ) {
     var editing by remember { mutableStateOf(false) }
-    var desc  by remember { mutableStateOf(exp.description) }
-    var amt   by remember { mutableStateOf(exp.amount.toString()) }
+    var desc  by remember { mutableStateOf(exp.name) }
+    var amt   by remember { mutableStateOf(exp.price.toString()) }
     var cat   by remember { mutableStateOf(exp.category) }
     var date  by remember { mutableStateOf(exp.date) }
 
@@ -173,8 +173,8 @@ fun ExpenseRow(
             Button(onClick = {
                 onUpdate(
                     exp.copy(
-                        description = desc,
-                        amount      = amt.toDoubleOrNull() ?: 0.0,
+                        name = desc,
+                        price      = amt.toDoubleOrNull() ?: 0.0,
                         category    = cat,
                         date        = date
                     )
@@ -190,7 +190,7 @@ fun ExpenseRow(
                 .background(Color.LightGray)
         ) {
             Text(desc,             Modifier.weight(2f).padding(4.dp))
-            Text(exp.amount.toString(), Modifier.weight(1f).padding(4.dp))
+            Text(exp.price.toString(), Modifier.weight(1f).padding(4.dp))
             Text(cat,              Modifier.weight(1f).padding(4.dp))
             Text(date,             Modifier.weight(1f).padding(4.dp))
             Row(Modifier.weight(1f)) {
