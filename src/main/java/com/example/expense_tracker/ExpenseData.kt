@@ -6,8 +6,8 @@ import kotlinx.coroutines.flow.Flow
 @Entity
 data class ExpenseItem(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
-    val description: String,
-    val amount: Double,
+    val name: String,
+    val price: Double,
     val category: String,
     val date: String       // yyyy‑MM‑dd
 )

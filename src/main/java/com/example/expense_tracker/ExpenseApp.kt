@@ -27,9 +27,9 @@ class ExpenseViewModel(private val db: ExpenseDatabase) : ViewModel() {
     private val dao = db.expenseDao()
     val expenses: Flow<List<ExpenseItem>> = dao.getAll()
 
-    fun addExpense(desc: String, amt: Double, cat: String, date: String) =
+    fun addExpense(name: String, pri: Double, cat: String, date: String) =
         viewModelScope.launch {
-            dao.insert(ExpenseItem(description = desc, amount = amt, category = cat, date = date))
+            dao.insert(ExpenseItem(name = name, price = pri, category = cat, date = date))
         }
 
     fun updateExpense(item: ExpenseItem) = viewModelScope.launch { dao.update(item) }
@@ -57,29 +57,42 @@ fun ExpenseApp() {
     val vm: ExpenseViewModel = viewModel(factory = ExpenseViewModelFactory(db))
     val expenses by vm.expenses.collectAsState(initial = emptyList())
 
-    var desc by remember { mutableStateOf("") }
-    var amt  by remember { mutableStateOf("") }
+    var name by remember { mutableStateOf("") }
+    var pri  by remember { mutableStateOf("") }
     var cat  by remember { mutableStateOf("") }
     var date by remember { mutableStateOf("") }
     val ctx = LocalContext.current
+    val categories = listOf("Food", "Apartment", "Transport", "Fees", "Health", "Social", "Shopping", "Travel", "Others")
+    expanded by remember { mutableStateOf(false) }
 
     Column(Modifier.padding(16.dp)) {
         Text("Add Expense", style = MaterialTheme.typography.titleMedium)
         Spacer(Modifier.height(8.dp))
-        TextField(desc, { desc = it }, label = { Text("Description") })
+        TextField(name, { name = it }, label = { Text("Description") })
         Spacer(Modifier.height(4.dp))
-        TextField(amt, { amt = it }, label = { Text("Amount") })
+        TextField(pri, { pri = it }, label = { Text("Price") })
         Spacer(Modifier.height(4.dp))
-        TextField(cat, { cat = it }, label = { Text("Category") })
+        OutlinedButton(onClick = { expanded = true }) {
+            Text(if (cat.isNotEmpty()) cat else "Select Category")
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            categories.forEach { category ->
+                DropdownMenuItem(text = { Text(category) }, onClick = {
+                    cat = category
+                    expanded = false
+                })
+            }
+        }
+        // TextField(cat, { cat = it }, label = { Text("Category") })
         Spacer(Modifier.height(4.dp))
         TextField(date, { date = it }, label = { Text("Date (yyyy-MM-dd)") })
         Spacer(Modifier.height(8.dp))
 
         Button(onClick = {
-            val amount = amt.toDoubleOrNull()
-            if (desc.isNotBlank() && amount != null && cat.isNotBlank() && date.isNotBlank()) {
-                vm.addExpense(desc, amount, cat, date)
-                desc = ""; amt = ""; cat = ""; date = ""
+            val price = pri.toDoubleOrNull()
+            if (name.isNotBlank() && price != null && cat.isNotBlank() && date.isNotBlank()) {
+                vm.addExpense(name, price, cat, date)
+                name = ""; pri = ""; cat = ""; date = ""
             } else {
                 Toast.makeText(ctx, "Please fill all fields correctly", Toast.LENGTH_SHORT).show()
             }
@@ -89,8 +102,8 @@ fun ExpenseApp() {
         Text("Expenses", style = MaterialTheme.typography.titleMedium)
 
         Row(Modifier.fillMaxWidth().background(Color.Gray).padding(8.dp)) {
-            Text("Description", Modifier.weight(2f), color = Color.White)
-            Text("Amount",      Modifier.weight(1f), color = Color.White)
+            Text("Name", Modifier.weight(2f), color = Color.White)
+            Text("Price",       Modifier.weight(1f), color = Color.White)
             Text("Category",    Modifier.weight(1f), color = Color.White)
             Text("Date",        Modifier.weight(1f), color = Color.White)
             Spacer(Modifier.weight(1f))
@@ -107,22 +120,22 @@ fun ExpenseApp() {
 @Composable
 fun ExpenseRow(exp: ExpenseItem, onUpdate: (ExpenseItem) -> Unit, onDelete: () -> Unit) {
     var editing by remember { mutableStateOf(false) }
-    var desc by remember { mutableStateOf(exp.description) }
+    var name by remember { mutableStateOf(exp.name) }
     var amt  by remember { mutableStateOf(exp.amount.toString()) }
-    var cat  by remember { mutableStateOf(exp.category) }
+    var pri  by remember { mutableStateOf(exp.price) }
     var date by remember { mutableStateOf(exp.date) }
 
     if (editing) {
         Row(Modifier.fillMaxWidth().padding(4.dp)) {
-            TextField(desc, { desc = it }, Modifier.weight(2f))
+            TextField(name, { name = it }, Modifier.weight(2f))
             TextField(amt,  { amt  = it }, Modifier.weight(1f))
-            TextField(cat,  { cat  = it }, Modifier.weight(1f))
+            TextField(pri,  { pri  = it }, Modifier.weight(1f))
             TextField(date, { date = it }, Modifier.weight(1f))
             Button(onClick = {
                 onUpdate(exp.copy(
-                    description = desc,
+                    name = name,
                     amount      = amt.toDoubleOrNull() ?: 0.0,
-                    category    = cat,
+                    price       = pri,
                     date        = date
                 ))
                 editing = false
@@ -130,9 +143,9 @@ fun ExpenseRow(exp: ExpenseItem, onUpdate: (ExpenseItem) -> Unit, onDelete: () -
         }
     } else {
         Row(Modifier.fillMaxWidth().padding(8.dp).background(Color.LightGray)) {
-            Text(desc, Modifier.weight(2f).padding(4.dp))
-            Text(exp.amount.toString(), Modifier.weight(1f).padding(4.dp))
-            Text(cat, Modifier.weight(1f).padding(4.dp))
+            Text(name, Modifier.weight(2f).padding(4.dp))
+            Text(exp.price.toString(), Modifier.weight(1f).padding(4.dp))
+            Text(pri, Modifier.weight(1f).padding(4.dp))
             Text(date, Modifier.weight(1f).padding(4.dp))
             Row(Modifier.weight(1f)) {
                 TextButton({ editing = true }) { Text("Edit") }
